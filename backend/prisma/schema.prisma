@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model Organization {
@@ -40,7 +41,7 @@ model Product {
   organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   name              String
   sku               String
-  description       String?      @db.Text
+  description       String?
   quantity          Int          @default(0)
   costPrice         Decimal?     @db.Decimal(10, 2)
   sellingPrice      Decimal?     @db.Decimal(10, 2)
