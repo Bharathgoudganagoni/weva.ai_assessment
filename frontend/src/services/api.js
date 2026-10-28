@@ -1,6 +1,7 @@
 
 const API_BASE = (
-  import.meta.env.VITE_API_URL || 'https://backend-5gb0.onrender.com'
+  import.meta.env.VITE_API_URL ||
+  'https://backend-5gb0.onrender.com'
 ).replace(/\/+$/, '');
 
 /**
@@ -13,10 +14,14 @@ const API_BASE = (
 async function request(endpoint, options = {}) {
   const token = localStorage.getItem('stockflow_token');
 
-  // Ensure endpoint begins with /api
-  const apiEndpoint = endpoint.startsWith('/api/')
+  // Ensure the endpoint begins with /api exactly once
+  const normalizedEndpoint = endpoint.startsWith('/')
     ? endpoint
-    : `/api${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+    : `/${endpoint}`;
+
+  const apiEndpoint = normalizedEndpoint.startsWith('/api/')
+    ? normalizedEndpoint
+    : `/api${normalizedEndpoint}`;
 
   const headers = {
     'Content-Type': 'application/json',
@@ -32,6 +37,7 @@ async function request(endpoint, options = {}) {
   try {
     const response = await fetch(`${API_BASE}${apiEndpoint}`, config);
 
+    // Handle unauthorized requests
     if (
       response.status === 401 &&
       !endpoint.includes('/auth/login') &&
@@ -43,6 +49,7 @@ async function request(endpoint, options = {}) {
       window.dispatchEvent(new Event('auth:unauthorized'));
     }
 
+    // Handle JSON and non-JSON responses safely
     const contentType = response.headers.get('content-type') || '';
 
     const data = contentType.includes('application/json')
@@ -63,7 +70,7 @@ async function request(endpoint, options = {}) {
 
     return data;
   } catch (err) {
-    if (err.name === 'TypeError') {
+    if (err instanceof TypeError) {
       throw new Error(
         'Unable to connect to the backend server. Please verify the API is running.'
       );
@@ -89,6 +96,7 @@ export const api = {
       }),
 
     getMe: () => request('/auth/me'),
+
   },
 
   // Products
@@ -147,6 +155,5 @@ export const api = {
         method: 'PUT',
         body: JSON.stringify(data),
       }),
-      
   },
 };
