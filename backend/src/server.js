@@ -1,4 +1,6 @@
+
 require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 
@@ -10,57 +12,68 @@ const settingsRoutes = require('./routes/settingsRoutes');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Enable CORS for frontend requests
-const allowedOrigins = process.env.CORS_ORIGIN
-  ? process.env.CORS_ORIGIN.split(',').map((o) => o.trim())
-  : ['http://localhost:5173'];
+// Allowed frontend origins
+const allowedOrigins = [
+  'https://frontend-qiqr.vercel.app',
+];
 
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, curl, etc.)
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
-        return callback(null, true);
-      }
-      return callback(new Error(`CORS: origin ${origin} not allowed`));
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  })
-);
+// CORS configuration
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests without an Origin header, such as health checks.
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
 
-// Middleware
+    return callback(
+      new Error(`CORS blocked request from origin: ${origin}`)
+    );
+  },
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+  optionsSuccessStatus: 204,
+};
+
+// Register CORS before routes and other middleware
+app.use(cors(corsOptions));
+
+// Parse request bodies
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Simple request logger
+// Request logger
 app.use((req, res, next) => {
   const start = Date.now();
+
   res.on('finish', () => {
     const duration = Date.now() - start;
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl} - ${res.statusCode} (${duration}ms)`);
+
+    console.log(
+      `[${new Date().toISOString()}] ${req.method} ${req.originalUrl} - ${res.statusCode} (${duration}ms)`
+    );
   });
+
   next();
 });
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.json({
+  res.status(200).json({
+    success: true,
     status: 'ok',
     service: 'StockFlow MVP API',
     timestamp: new Date().toISOString(),
   });
 });
 
-// Mount modular API routes
+// API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/settings', settingsRoutes);
 
-// 404 Handler
+// 404 handler
 app.use((req, res) => {
   res.status(404).json({
     success: false,
@@ -68,23 +81,33 @@ app.use((req, res) => {
   });
 });
 
-// Global Error Handler
+// Global error handler
 app.use((err, req, res, next) => {
-  console.error('Unhandled Application Error:', err);
+  console.error('Unhandled Application Error:', err.message);
+
+  if (err.message && err.message.startsWith('CORS blocked')) {
+    return res.status(403).json({
+      success: false,
+      message: err.message,
+    });
+  }
+
   res.status(err.status || 500).json({
     success: false,
     message: err.message || 'Internal Server Error',
-    ...(process.env.NODE_ENV === 'development' ? { stack: err.stack } : {}),
+    ...(process.env.NODE_ENV === 'development'
+      ? { stack: err.stack }
+      : {}),
   });
 });
 
-// Start HTTP Server
-const server = app.listen(PORT, () => {
-  console.log(`=========================================`);
-  console.log(`  StockFlow API Server is running`);
-  console.log(`  URL: http://localhost:${PORT}`);
+// Start server
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log('=========================================');
+  console.log('  StockFlow API Server is running');
+  console.log(`  Port: ${PORT}`);
   console.log(`  Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`=========================================`);
+  console.log('=========================================');
 });
 
 module.exports = app;
