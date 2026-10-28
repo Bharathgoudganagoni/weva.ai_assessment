@@ -110,3 +110,4 @@ The app will be available at `http://localhost:5173`.
 - `.env` files are excluded from version control
 - Each tenant only sees their own products — cross-tenant access returns 404
 - The seed script can be re-run to reset data
+
